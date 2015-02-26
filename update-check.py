@@ -1,37 +1,38 @@
 #!/usr/bin/python3
 
-from subprocess import Popen,call,PIPE;
+from subprocess import check_output,call,PIPE,DEVNULL;
 from email.mime.text import MIMEText
 from socket import gethostname
 import re
+import sys
 
 mailto   = "user@hoge.com"
 mailfrom = "root@%s" % gethostname()
 
 def mail(content):
-    msg = MIMEText(content)
+    msg = MIMEText(content, "plain", "utf-8")
     msg["Subject"] = "[APT] upgradables for %s" % gethostname()
     msg["From"]    = mailfrom
     msg["To"]      = mailto
-
-    Popen(["/usr/sbin/sendmail","-t"],stdin=PIPE) \
-            .communicate(msg.as_string().encode("utf-8"))
-
+    print("-"*20)
+    print(msg.as_string())
+    check_output(["/usr/sbin/sendmail", "-t"],
+                 input = msg.as_string().encode("utf-8"))
+    
 def apt_upgradable_list():
-    call(["apt-get","update"])
-    (outs, errs) = Popen(
-            ["apt-get","-u","--assume-no","-V","upgrade"],
-            stdout = PIPE,
+    call(["apt","update"],stdout = DEVNULL,stderr=DEVNULL)
+    out = check_output(
+            ["apt","list","--upgradable"],
             universal_newlines=True,
-            ).communicate()
-    m = re.search(r"^(\d+)\s*upgraded.*(\d)+\s*not upgraded\.$", outs,
-            flags=re.MULTILINE)
-    if m and sum(int(s) for s in m.groups()) > 0:
-        return "\n".join(outs.split("\n")[4:-2])
-    else:
-        return None
+            )
+    return out[out.find("\n")+1:]
 
 if __name__=="__main__":
     ret=apt_upgradable_list()
-    if ret:
+    if len(ret)>0:
+        print("[APT] upgradables for %s"%gethostname())
+        print("-"*20)
+        print(ret)
         mail(ret)
+    else:
+        print("Nothing will be mailed.")
