@@ -3,6 +3,7 @@
 from subprocess import check_output,call,PIPE,DEVNULL;
 from email.mime.text import MIMEText
 from socket import gethostname
+import datetime
 import urllib.request
 import re
 import sys
@@ -34,7 +35,28 @@ def get_change_log(pkgname):
     data = urllib.request.urlopen(uri).read().decode()
     return data
 
+def extract_changelog_lastupdated(changelog):
+    months = dict(zip("Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec".split("|"),map(lambda x:x+1,range(12))))
+    pattern = r"""
+    \s*--.*
+    (
+    (Mon|Tue|Wed|Thu|Fri|Sat|Sun),\s 
+    (?P<date>\d{1,2})\s(?P<month>Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s(?P<year>\d{4})\s
+    (?P<hour>\d{2}):(?P<minute>\d{2}):(?P<second>\d{2})\s
+    (?P<tz>[\+\-](\d{4}))
+    )\s*$
+    """[1:]
+    m = re.search(pattern,changelog,re.VERBOSE|re.MULTILINE).groupdict()
+    tz = datetime.timedelta(hours=int(m['tz'][:3]),minutes=int(m['tz'][3:]))
+    return datetime.datetime(int(m['year']),months[m['month']],int(m['date']),
+            int(m['hour']),int(m['minute']),int(m['second']),
+            tzinfo = datetime.timezone(tz)).astimezone()
+
 if __name__=="__main__":
+    data = get_change_log('unzip')
+    m = extract_changelog_lastupdated(data)
+    print(m)
+    sys.exit(0)
     ret=apt_list_upgradable()
     if len(ret)>0:
         print("[APT] upgradables for %s"%gethostname())
