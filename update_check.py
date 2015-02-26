@@ -3,6 +3,7 @@
 from subprocess import check_output,call,PIPE,DEVNULL;
 from email.mime.text import MIMEText
 from socket import gethostname
+import urllib.request
 import re
 import sys
 
@@ -26,6 +27,12 @@ def apt_list_upgradable():
             universal_newlines=True,
             )
     return out[out.find("\n")+1:]
+
+def get_change_log(pkgname):
+    uris = check_output(['apt-get','changelog','--print-uris',pkgname],universal_newlines=True)
+    uri = uris.split('\n')[0].strip("'\"\n")
+    data = urllib.request.urlopen(uri).read().decode()
+    return data
 
 if __name__=="__main__":
     ret=apt_list_upgradable()
